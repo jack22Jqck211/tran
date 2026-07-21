@@ -1,0 +1,25 @@
+services:
+  bot:
+    build:
+      context: .
+      dockerfile: Dockerfile.gpu
+    env_file: .env
+    restart: unless-stopped
+    init: true
+    volumes:
+      - whisper-cache:/data
+    environment:
+      - TEMP_DIRECTORY=/tmp/jobs
+      - WHISPER_DEVICE=cuda
+      - WHISPER_COMPUTE=float16
+      - WHISPER_MODEL=${WHISPER_MODEL:-large-v3}
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+volumes:
+  whisper-cache:

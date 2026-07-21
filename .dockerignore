@@ -1,0 +1,15 @@
+__pycache__
+*.pyc
+.env
+.env.*
+.git
+.gitignore
+.pytest_cache
+.ruff_cache
+tests
+*.session
+.session
+docker-compose*.yml
+Dockerfile.gpu
+README.md
+LICENSE

@@ -1,0 +1,31 @@
+# GPU image — CUDA 12 + cuDNN 9 runtime for CTranslate2/faster-whisper.
+# Requires the NVIDIA Container Toolkit on the host.
+FROM nvidia/cuda:12.4.1-cudnn-runtime-ubuntu22.04
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+       python3 python3-pip ffmpeg libgomp1 ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+COPY requirements.txt .
+RUN pip3 install --no-cache-dir -r requirements.txt
+
+COPY app ./app
+
+RUN useradd -m -u 10001 appuser \
+    && mkdir -p /tmp/jobs /data \
+    && chown -R appuser:appuser /tmp/jobs /data /app
+USER appuser
+
+ENV TEMP_DIRECTORY=/tmp/jobs \
+    WHISPER_DEVICE=cuda \
+    WHISPER_COMPUTE=float16
+
+CMD ["python3", "-m", "app.main"]

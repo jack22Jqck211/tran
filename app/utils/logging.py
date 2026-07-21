@@ -1,38 +1,50 @@
-"""Simple logging setup."""
+"""Structured JSON logging for production deployments."""
 from __future__ import annotations
 
+import json
 import logging
 import sys
+import time
+from typing import Any, Dict
+
+_STANDARD_ATTRS = {
+    "name", "msg", "args", "levelname", "levelno", "pathname", "filename",
+    "module", "exc_info", "exc_text", "stack_info", "lineno", "funcName",
+    "created", "msecs", "relativeCreated", "thread", "threadName",
+    "processName", "process", "taskName", "message", "asctime",
+}
 
 
-def setup_logging(level: str = "INFO", fmt: str = "plain") -> None:
-    root = logging.getLogger()
-    root.setLevel(level)
-    for h in list(root.handlers):
-        root.removeHandler(h)
+class JsonFormatter(logging.Formatter):
+    """Render log records as single-line JSON objects."""
+
+    def format(self, record: logging.LogRecord) -> str:
+        payload: Dict[str, Any] = {
+            "ts": time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime(record.created))
+                  + (".%03dZ" % record.msecs),
+            "level": record.levelname,
+            "logger": record.name,
+            "msg": record.getMessage(),
+        }
+        for key, value in record.__dict__.items():
+            if key not in _STANDARD_ATTRS and not key.startswith("_"):
+                try:
+                    json.dumps(value)
+                    payload[key] = value
+                except (TypeError, ValueError):
+                    payload[key] = repr(value)
+        if record.exc_info:
+            payload["exc"] = self.formatException(record.exc_info)
+        return json.dumps(payload, ensure_ascii=False)
+
+
+def setup_logging(level: str = "INFO") -> None:
     handler = logging.StreamHandler(sys.stdout)
-    if fmt == "json":
-        import json
-        from datetime import datetime, timezone
+    handler.setFormatter(JsonFormatter())
+    root = logging.getLogger()
+    root.handlers[:] = [handler]
+    root.setLevel(getattr(logging, level, logging.INFO))
 
-        class _JsonFormatter(logging.Formatter):
-            def format(self, record: logging.LogRecord) -> str:
-                return json.dumps({
-                    "ts": datetime.now(timezone.utc).isoformat(),
-                    "level": record.levelname,
-                    "logger": record.name,
-                    "msg": record.getMessage(),
-                }, ensure_ascii=False)
-
-        handler.setFormatter(_JsonFormatter())
-    else:
-        handler.setFormatter(
-            logging.Formatter("%(asctime)s | %(levelname)-7s | %(name)s | %(message)s")
-        )
-    root.addHandler(handler)
-    for noisy in ("httpx", "telegram", "urllib3"):
+    # Third-party loggers are noisy at INFO.
+    for noisy in ("telethon", "httpx", "httpcore", "faster_whisper", "urllib3"):
         logging.getLogger(noisy).setLevel(logging.WARNING)
-
-
-def get_logger(name: str) -> logging.Logger:
-    return logging.getLogger(name)
