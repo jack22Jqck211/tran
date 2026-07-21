@@ -1,2 +1,2 @@
-# Stage 2 — Telegram bot base (no heavy deps yet)
+# Stage 3 — Telegram bot + FFmpeg (no whisper yet)
 python-telegram-bot==21.6
