@@ -1,1 +1,2 @@
-# Stage 1 — no external deps, just Python stdlib
+# Stage 2 — Telegram bot base (no heavy deps yet)
+python-telegram-bot==21.6
